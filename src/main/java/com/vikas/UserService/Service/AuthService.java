@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMapAdapter;
 
+import javax.xml.transform.Source;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -66,7 +67,9 @@ public class AuthService {
         // 4. Generate the "Token" once all the above checks is completed
         String token = RandomStringUtils.randomAlphanumeric(30);
 
-        //5. Create the Session
+        //5. Create the Session (If this user has active session then we will close and then generate the new session)
+        check(userOptional.get().getId());
+        // creating new session
         Session session = new Session();
         session.setSessionStatus(SessionStatus.ACTIVE);
         session.setToken(token);
@@ -111,6 +114,15 @@ public class AuthService {
 
     public SessionStatus validate(String token, Long userId) {
         return SessionStatus.ACTIVE;
+    }
+
+    public void check(Long userID){
+        Optional<Session> sessionOptional = sessionRepository.findSessionWhereSessionStatusIsActive(userID);
+        if(sessionOptional.isPresent()){
+            Session session = sessionOptional.get();
+            session.setSessionStatus(SessionStatus.ENDED);
+            sessionRepository.save(session);
+        }
     }
 
 }
