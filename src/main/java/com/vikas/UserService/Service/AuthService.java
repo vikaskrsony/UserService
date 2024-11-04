@@ -2,6 +2,7 @@ package com.vikas.UserService.Service;
 
 import com.vikas.UserService.DTO.UserDTO;
 import com.vikas.UserService.Exception.InvalidCredentialException;
+import com.vikas.UserService.Exception.InvalidTokenException;
 import com.vikas.UserService.Exception.UserNotFoundException;
 import com.vikas.UserService.Mapper.UserEntityDTOMapper;
 import com.vikas.UserService.Models.Session;
@@ -9,7 +10,8 @@ import com.vikas.UserService.Models.SessionStatus;
 import com.vikas.UserService.Models.User;
 import com.vikas.UserService.Repository.SessionRepository;
 import com.vikas.UserService.Repository.UserRepository;
-import org.apache.commons.lang3.RandomStringUtils;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.MacAlgorithm;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +19,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMapAdapter;
 
-import javax.xml.transform.Source;
+import javax.crypto.SecretKey;
 import java.time.LocalDate;
 import java.util.*;
+
+import static com.vikas.UserService.Models.SessionStatus.ACTIVE;
+import static com.vikas.UserService.Models.SessionStatus.ENDED;
 
 @Service
 public class AuthService {
@@ -65,13 +70,29 @@ public class AuthService {
 
 
         // 4. Generate the "Token" once all the above checks is completed
-        String token = RandomStringUtils.randomAlphanumeric(30);
+        //String token = RandomStringUtils.randomAlphanumeric(30);
+
+        MacAlgorithm algorithm = Jwts.SIG.HS256; // HS256 is a hashing algorithm for JWT token
+        SecretKey key = algorithm.key().build(); // Generating the secret key
+
+        // Start adding the claims means Attributes for the JWT tokens
+        Map<String, Object> jsonForJWT = new HashMap<>();
+        jsonForJWT.put("email", user.getEmail());
+        jsonForJWT.put("roles", user.getRoles());
+        jsonForJWT.put("createdAt", new Date());
+        jsonForJWT.put("expiryAt", new Date(LocalDate.now().plusDays(3).toEpochDay()));
+
+        String token = Jwts.builder()
+                .claims(jsonForJWT) // added the claims/attributes
+                .signWith(key, algorithm) // algorithm in the key
+                .compact(); // building the token
+
 
         //5. Create the Session (If this user has active session then we will close and then generate the new session)
         check(userOptional.get().getId());
         // creating new session
         Session session = new Session();
-        session.setSessionStatus(SessionStatus.ACTIVE);
+        session.setSessionStatus(ACTIVE);
         session.setToken(token);
         session.setLoginAt(new Date());
         session.setUser(user);
@@ -92,7 +113,7 @@ public class AuthService {
         // validations -> token exists, token is not expired, user exists else throw an exception
         Optional<Session> sessionOptional = sessionRepository.findByTokenAndUser_id(token, userId);
         if (sessionOptional.isEmpty()) {
-            return null; //TODO throw exception here
+            throw new InvalidCredentialException("Invalid Credentials");
         }
         Session session = sessionOptional.get();
         session.setSessionStatus(SessionStatus.ENDED);
@@ -113,12 +134,16 @@ public class AuthService {
     }
 
     public SessionStatus validate(String token, Long userId) {
-        return SessionStatus.ACTIVE;
+        Optional<Session> optionalSession = sessionRepository.findByTokenAndUser_id(token, userId);
+        if (optionalSession.isEmpty() || optionalSession.get().getSessionStatus().equals(ENDED)) {
+            throw new InvalidTokenException("Invalid Token");
+        }
+        return ACTIVE;
     }
 
-    public void check(Long userID){
+    public void check(Long userID) {
         Optional<Session> sessionOptional = sessionRepository.findSessionWhereSessionStatusIsActive(userID);
-        if(sessionOptional.isPresent()){
+        if (sessionOptional.isPresent()) {
             Session session = sessionOptional.get();
             session.setSessionStatus(SessionStatus.ENDED);
             sessionRepository.save(session);

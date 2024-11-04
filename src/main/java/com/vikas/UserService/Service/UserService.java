@@ -1,6 +1,7 @@
 package com.vikas.UserService.Service;
 
 import com.vikas.UserService.DTO.UserDTO;
+import com.vikas.UserService.Mapper.UserEntityDTOMapper;
 import com.vikas.UserService.Models.Role;
 import com.vikas.UserService.Models.User;
 import com.vikas.UserService.Repository.RoleRepository;
@@ -27,7 +28,7 @@ public class UserService {
             return null;
         }
 
-        return UserDTO.from(userOptional.get());
+        return UserEntityDTOMapper.getUserDTOFromUserEntity(userOptional.get());
     }
 
     public UserDTO setUserRoles(Long userId, List<Long> roleIds) {
@@ -42,6 +43,6 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        return UserDTO.from(savedUser);
+        return UserEntityDTOMapper.getUserDTOFromUserEntity(savedUser);
     }
 }
