@@ -82,13 +82,13 @@ public class AuthService {
 
         //7. Setting up the Headers
         MultiValueMapAdapter<String, String> headers = new MultiValueMapAdapter<>(new HashMap<>());
-        headers.add(HttpHeaders.SET_COOKIE, "auth-token " + token);
+        headers.add(HttpHeaders.SET_COOKIE, "auth-token: " + token);
 
         ResponseEntity<UserDTO> response = new ResponseEntity<>(userDTO, headers, HttpStatus.OK);
         return response;
     }
 
-    public ResponseEntity<Void> logout(String token, Long userId) {
+    public ResponseEntity<String> logout(String token, Long userId) {
         // validations -> token exists, token is not expired, user exists else throw an exception
         Optional<Session> sessionOptional = sessionRepository.findByTokenAndUser_id(token, userId);
         if (sessionOptional.isEmpty()) {
@@ -97,7 +97,7 @@ public class AuthService {
         Session session = sessionOptional.get();
         session.setSessionStatus(SessionStatus.ENDED);
         sessionRepository.save(session);
-        return ResponseEntity.ok().build();
+        return new ResponseEntity<>("Logged-out successfully !!", HttpStatus.OK);
     }
 
     public UserDTO signUp(String email, String password) {
@@ -109,7 +109,7 @@ public class AuthService {
         user.setPassword(bCryptPasswordEncoder.encode(password));
 
         User savedUser = userRepository.save(user);
-        return UserDTO.from(savedUser);
+        return UserEntityDTOMapper.getUserDTOFromUserEntity(user);
     }
 
     public SessionStatus validate(String token, Long userId) {

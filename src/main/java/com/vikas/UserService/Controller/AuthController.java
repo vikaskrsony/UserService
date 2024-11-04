@@ -30,8 +30,7 @@ public class AuthController {
 
     @PostMapping("/logout/{id}")
     public ResponseEntity<String> logout(@PathVariable("id") Long userId, @RequestHeader("token") String token) {
-         authService.logout(token, userId);
-         return new ResponseEntity<>("Logged-out SuccessFully", HttpStatus.OK);
+         return authService.logout(token, userId);
     }
 
     @PostMapping("/signup")
